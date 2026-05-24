@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Luna Terra Piatta - Parallasse</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --panel-bg: #1a1f2c;
+            --text-color: #00d2ff;
+            --accent-color: #3a4750;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --obs-a-color: #ff4b2b;
+            --obs-b-color: #00d2ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid var(--text-color);
+        }
+
+        main {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .side-panel {
+            width: 320px;
+            background-color: var(--panel-bg);
+            padding: 1.5rem;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .view-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .view-box {
+            background-color: var(--panel-bg);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid #333;
+            background-color: #000;
+            border-radius: 5px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+
+        .obs-a-text { color: var(--obs-a-color); }
+        .obs-b-text { color: var(--obs-b-color); }
+
+        input[type="range"], input[type="number"] {
+            width: 100%;
+            background: var(--accent-color);
+            color: #white;
+            border: none;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .play-btn {
+            padding: 10px;
+            background: var(--text-color);
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .comparison-data {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .data-card {
+            background: rgba(0,0,0,0.2);
+            padding: 5px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .data-label { font-size: 0.7rem; color: #aaa; }
+        .data-val { font-weight: bold; font-family: monospace; display: block; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Simulatore Luna Terra Piatta</h1>
+    <nav><a href="index.html" style="color: var(--text-color); text-decoration: none; border: 1px solid; padding: 4px 8px; border-radius: 4px;">Torna al Sole</a></nav>
+</header>
+
+<main>
+    <section class="side-panel">
+        <div class="control-group">
+            <label>Ora: <span id="time-val">12:00</span></label>
+            <input type="range" id="time" min="0" max="1439" value="720">
+            <button id="playBtn" class="play-btn">PLAY</button>
+        </div>
+        <div class="control-group" style="border-left: 4px solid var(--obs-a-color)">
+            <label class="obs-a-text">Osservatore A (Lat/Lon)</label>
+            <input type="range" id="lat-a" min="-90" max="90" value="45">
+            <input type="range" id="lon-a" min="-180" max="180" value="0">
+        </div>
+        <div class="control-group" style="border-left: 4px solid var(--obs-b-color)">
+            <label class="obs-b-text">Osservatore B (Lat/Lon)</label>
+            <input type="range" id="lat-b" min="-90" max="90" value="-30">
+            <input type="range" id="lon-b" min="-180" max="180" value="45">
+        </div>
+        <div class="control-group">
+            <label>Altezza Luna (km)</label>
+            <input type="number" id="moon-h" value="5000" step="100">
+            <label>Diametro Luna (km)</label>
+            <input type="number" id="moon-s" value="50" step="5">
+        </div>
+    </section>
+
+    <section class="view-container">
+        <div class="view-box">
+            <h2 style="font-size: 1rem; margin: 0 0 10px 0;">MAPPA DI GLEASON</h2>
+            <canvas id="mapCanvas" width="500" height="500"></canvas>
+        </div>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div class="view-box" style="flex: 1">
+                <h3 class="obs-a-text">Telescopio A</h3>
+                <canvas id="telA" width="400" height="400"></canvas>
+                <div class="comparison-data">
+                    <div class="data-card"><span class="data-label">Distanza</span><span id="dist-a" class="data-val">-</span></div>
+                    <div class="data-card"><span class="data-label">Elevazione</span><span id="elev-a" class="data-val">-</span></div>
+                </div>
+            </div>
+            <div class="view-box" style="flex: 1">
+                <h3 class="obs-b-text">Telescopio B</h3>
+                <canvas id="telB" width="400" height="400"></canvas>
+                <div class="comparison-data">
+                    <div class="data-card"><span class="data-label">Distanza</span><span id="dist-b" class="data-val">-</span></div>
+                    <div class="data-card"><span class="data-label">Elevazione</span><span id="elev-b" class="data-val">-</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    // Configurazione
+    const EARTH_R = 20000;
+    const MOON_ORBIT_R = 10000;
+    let MOON_H = 5000;
+    let MOON_D = 50;
+
+    // Elementi
+    const el = (id) => document.getElementById(id);
+    const canvases = { map: el('mapCanvas'), telA: el('telA'), telB: el('telB') };
+    const ctxs = { map: canvases.map.getContext('2d'), telA: canvases.telA.getContext('2d'), telB: canvases.telB.getContext('2d') };
+    
+    // Immagini
+    const mapImg = new Image(); mapImg.src = 'Terra piatta.jpeg';
+    const moonImg = new Image();
+    const moonTexture = document.createElement('canvas'); moonTexture.width = 1024; moonTexture.height = 512;
+    let moonData = null;
+
+    // Stato
+    let state = { min: 720, anim: false, obsA: {lat:45, lon:0}, obsB: {lat:-30, lon:45}, moonPos: {x:0, y:0} };
+
+    function initTexture() {
+        const c = moonTexture.getContext('2d');
+        
+        // 1. Texture Procedurale (Fallback immediato e sicuro)
+        c.fillStyle = '#1a1a1a'; c.fillRect(0,0,moonTexture.width, moonTexture.height);
+        c.fillStyle = '#333';
+        for(let i=0; i<60; i++) {
+            c.beginPath(); c.arc(Math.random()*moonTexture.width, Math.random()*moonTexture.height, 10+Math.random()*40, 0, Math.PI*2); c.fill();
+        }
+        moonData = c.getImageData(0,0,moonTexture.width, moonTexture.height).data;
+
+        // 2. Tentativo caricamento Luna.jpg (Non bloccante)
+        moonImg.onload = () => {
+            try {
+                c.drawImage(moonImg, 0, 0, moonTexture.width, moonTexture.height);
+                moonData = c.getImageData(0,0,moonTexture.width, moonTexture.height).data;
+                console.log("Luna.jpg caricata con successo.");
+                draw();
+            } catch(e) {
+                console.error("Errore sicurezza browser: Impossibile leggere i pixel di Luna.jpg senza un server locale (CORS). Uso texture procedurale.");
+            }
+        };
+        moonImg.onerror = () => { console.warn("Luna.jpg non trovata."); };
+        moonImg.src = 'Luna.jpg';
+    }
+
+    function latLonToXY(lat, lon, maxR) {
+        const r = ((90 - lat) / 180) * maxR;
+        const a = (lon - 90) * Math.PI / 180;
+        return { x: r * Math.cos(a), y: r * Math.sin(a) };
+    }
+
+    function draw() {
+        const w = canvases.map.width, cx = w/2, r = w * 0.45;
+        ctxs.map.fillStyle = '#050a15'; ctxs.map.fillRect(0,0,w,w);
+        
+        ctxs.map.save();
+        ctxs.map.beginPath(); ctxs.map.arc(cx,cx,r,0,Math.PI*2); ctxs.map.clip();
+        if(mapImg.complete && mapImg.naturalWidth > 0) ctxs.map.drawImage(mapImg, cx-r, cx-r, r*2, r*2);
+        ctxs.map.restore();
+        
+        ctxs.map.strokeStyle = 'rgba(255,255,255,0.2)'; ctxs.map.beginPath(); ctxs.map.arc(cx,cx,r,0,Math.PI*2); ctxs.map.stroke();
+
+        const ang = (state.min / 1440) * Math.PI * 2 - Math.PI/2;
+        const mx = (MOON_ORBIT_R / EARTH_R) * r * Math.cos(ang);
+        const my = (MOON_ORBIT_R / EARTH_R) * r * Math.sin(ang);
+        state.moonPos = { x: MOON_ORBIT_R * Math.cos(ang), y: MOON_ORBIT_R * Math.sin(ang) };
+
+        ctxs.map.fillStyle = '#ffff00'; ctxs.map.beginPath(); ctxs.map.arc(cx+mx, cx+my, 8, 0, Math.PI*2); ctxs.map.fill();
+
+        const drawObs = (lat, lon, col, lab) => {
+            const p = latLonToXY(lat, lon, r);
+            ctxs.map.fillStyle = col; ctxs.map.beginPath(); ctxs.map.arc(cx+p.x, cx+p.y, 6, 0, Math.PI*2); ctxs.map.fill();
+            ctxs.map.strokeStyle = '#fff'; ctxs.map.stroke();
+            ctxs.map.fillStyle = '#fff'; ctxs.map.fillText(lab, cx+p.x+8, cx+p.y+4);
+        };
+        drawObs(state.obsA.lat, state.obsA.lon, '#ff4b2b', 'A');
+        drawObs(state.obsB.lat, state.obsB.lon, '#00d2ff', 'B');
+
+        renderTel(ctxs.telA, state.obsA, 'a');
+        renderTel(ctxs.telB, state.obsB, 'b');
+    }
+
+    function renderTel(ctx, obs, id) {
+        const w = ctx.canvas.width;
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,w);
+
+        const op = latLonToXY(obs.lat, obs.lon, EARTH_R);
+        const dx = state.moonPos.x - op.x, dy = state.moonPos.y - op.y, dz = MOON_H;
+        const d2d = Math.sqrt(dx*dx + dy*dy) || 0.1, d3d = Math.sqrt(d2d*d2d + dz*dz);
+        const elev = Math.atan2(dz, d2d) * 180 / Math.PI;
+
+        el('dist-'+id).innerText = Math.round(d3d) + " km";
+        el('elev-'+id).innerText = elev.toFixed(1) + "°";
+
+        const appR = (MOON_D / 2 / d3d) * 30000;
+        if(appR < 1 || !moonData) return;
+
+        const imgD = ctx.createImageData(w, w), data = imgD.data;
+        const l = { x: dx/d3d, y: dy/d3d, z: dz/d3d };
+        let u = {x:0, y:0, z:1}, r = { x: u.y*l.z-u.z*l.y, y: u.z*l.x-u.x*l.z, z: u.x*l.y-u.y*l.x };
+        const mr = Math.sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+        if(mr<0.001) r = {x:1, y:0, z:0}; else { r.x/=mr; r.y/=mr; r.z/=mr; }
+        const ru = { x: l.y*r.z-l.z*r.y, y: l.z*r.x-l.x*r.z, z: l.x*r.y-l.y*r.x };
+
+        const sX = Math.max(0, Math.floor(w/2-appR)), eX = Math.min(w, Math.ceil(w/2+appR));
+        const sY = Math.max(0, Math.floor(w/2-appR)), eY = Math.min(w, Math.ceil(w/2+appR));
+
+        const tw = 1024, th = 512;
+
+        for(let y=sY; y<eY; y++) {
+            for(let x=sX; x<eX; x++) {
+                const nx = (x-w/2)/appR, ny = (y-w/2)/appR, r2 = nx*nx+ny*ny;
+                if(r2 <= 1) {
+                    const nz = Math.sqrt(1-r2);
+                    const px = -(nx*r.x - ny*ru.x - nz*l.x), py = -(nx*r.y - ny*ru.y - nz*l.y), pz = (nx*r.z - ny*ru.z - nz*l.z);
+                    const lon = Math.atan2(py, px), lat = Math.acos(Math.max(-1, Math.min(1, pz)));
+                    const tx = Math.floor(((lon+Math.PI)/(2*Math.PI))*tw)%tw, ty = Math.floor((lat/Math.PI)*th)%th;
+                    const ti = (ty*tw + tx)*4, pi = (y*w + x)*4;
+                    const sh = 0.5 + 0.5*nz;
+                    data[pi] = moonData[ti]*sh; data[pi+1] = moonData[ti+1]*sh; data[pi+2] = moonData[ti+2]*sh; data[pi+3] = 255;
+                }
+            }
+        }
+        ctx.putImageData(imgD, 0, 0);
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(w/2,w/2,appR,0,Math.PI*2); ctx.stroke();
+    }
+
+    function update() {
+        state.min = parseInt(el('time').value);
+        state.obsA = {lat: parseFloat(el('lat-a').value), lon: parseFloat(el('lon-a').value)};
+        state.obsB = {lat: parseFloat(el('lat-b').value), lon: parseFloat(el('lon-b').value)};
+        MOON_H = parseFloat(el('moon-h').value); MOON_D = parseFloat(el('moon-s').value);
+        const h = Math.floor(state.min/60), m = state.min%60;
+        el('time-val').innerText = h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
+        draw();
+    }
+
+    el('playBtn').onclick = () => { state.anim = !state.anim; el('playBtn').innerText = state.anim ? 'PAUSE' : 'PLAY'; };
+    window.onload = () => { initTexture(); update(); setInterval(() => { if(state.anim) { el('time').value = (parseInt(el('time').value)+1)%1440; update(); } }, 50); };
+    ['time','lat-a','lon-a','lat-b','lon-b','moon-h','moon-s'].forEach(id => el(id).oninput = update);
+</script>
+</body>
+</html>

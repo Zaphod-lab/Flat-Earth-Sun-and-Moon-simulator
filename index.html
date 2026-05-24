@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Sole Terra Piatta V1.0</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --panel-bg: #16213e;
+            --text-color: #e94560;
+            --accent-color: #0f3460;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid var(--text-color);
+        }
+
+        main {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .side-panel {
+            width: 300px;
+            background-color: var(--panel-bg);
+            padding: 1.5rem;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            height: fit-content;
+        }
+
+        .view-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1rem;
+        }
+
+        .view-box {
+            background-color: var(--panel-bg);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .view-box h2 {
+            margin: 5px 0 15px 0;
+            color: var(--text-color);
+            font-size: 1.2rem;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            max-width: 500px;
+            border: 1px solid #333;
+            background-color: #000;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        input[type="number"], input[type="date"], input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        input[type="range"] {
+            cursor: pointer;
+        }
+
+        .info {
+            margin-top: auto;
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.4;
+        }
+
+        .info b {
+            color: var(--text-color);
+        }
+
+        @media (max-width: 1000px) {
+            main {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .side-panel {
+                width: auto;
+            }
+            .view-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Simulatore Sole Terra Piatta V1.0</h1>
+    <nav>
+        <a href="indexluna.html" style="color: var(--text-color); font-weight: bold; text-decoration: none; border: 1px solid var(--text-color); padding: 5px 10px; border-radius: 5px;">Passa al Simulatore Luna</a>
+    </nav>
+</header>
+
+<main>
+    <section class="side-panel">
+        <div class="control-group">
+            <label for="lat">Latitudine Osservatore (°)</label>
+            <input type="number" id="lat" value="45" min="-90" max="90">
+        </div>
+        <div class="control-group">
+            <label for="lon">Longitudine Osservatore (°)</label>
+            <input type="number" id="lon" value="9" min="-180" max="180">
+        </div>
+        <div class="control-group">
+            <label for="date">Data</label>
+            <input type="date" id="date" value="2024-03-21">
+        </div>
+        <div class="control-group">
+            <label for="time">Ora del Giorno: <span id="time-val">12:00</span></label>
+            <input type="range" id="time" min="0" max="1439" value="720">
+        </div>
+        
+        <button id="playBtn" style="padding: 10px; background: var(--text-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Play</button>
+
+        <div class="info">
+            <h3>Dati Simulati:</h3>
+            <p>Distanza Sole: <span id="info-dist">0</span> km</p>
+            <p>Elevazione: <span id="info-elev">0</span>°</p>
+            <p>Azimut: <span id="info-azim">0</span>°</p>
+            <hr>
+            <p><i>Il modello utilizza un'altezza costante del Sole di <b>5000 km</b>. La prospettiva riduce la dimensione e l'angolo di elevazione del Sole all'aumentare della distanza dall'osservatore.</i></p>
+        </div>
+    </section>
+
+    <section class="view-container">
+        <div class="view-box">
+            <h2>Vista Zenitale (Mappa)</h2>
+            <canvas id="mapCanvas" width="500" height="500"></canvas>
+        </div>
+        <div class="view-box">
+            <h2>Vista Osservatore (Prospettiva)</h2>
+            <canvas id="obsCanvas" width="500" height="500"></canvas>
+        </div>
+    </section>
+</main>
+
+<script>
+    // Configurazione Costanti
+    const SUN_HEIGHT = 5000; // km
+    const EARTH_RADIUS_FLAT = 20000; // km
+    const TROPIC_CANCER_LAT = 23.44;
+    const TROPIC_CAPRICORN_LAT = -23.44;
+
+    // Elementi DOM
+    const latInput = document.getElementById('lat');
+    const lonInput = document.getElementById('lon');
+    const dateInput = document.getElementById('date');
+    const timeInput = document.getElementById('time');
+    const timeValLabel = document.getElementById('time-val');
+    const playBtn = document.getElementById('playBtn');
+    
+    const infoDist = document.getElementById('info-dist');
+    const infoElev = document.getElementById('info-elev');
+    const infoAzim = document.getElementById('info-azim');
+
+    const mapCanvas = document.getElementById('mapCanvas');
+    const mapCtx = mapCanvas.getContext('2d');
+    const obsCanvas = document.getElementById('obsCanvas');
+    const obsCtx = obsCanvas.getContext('2d');
+
+    // Caricamento Immagine Mappa
+    const mapImg = new Image();
+    mapImg.src = 'Terra piatta.jpeg';
+    mapImg.onload = () => draw();
+
+    // Stato
+    let state = {
+        lat: 45,
+        lon: 9,
+        date: new Date('2024-03-21'),
+        minutes: 720,
+        isAnimating: false
+    };
+
+    // Stelle (generate una volta)
+    const stars = Array.from({length: 200}, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 2,
+        speed: Math.random() * 0.05
+    }));
+
+    function init() {
+        [latInput, lonInput, dateInput, timeInput].forEach(el => {
+            el.addEventListener('input', updateState);
+        });
+
+        playBtn.addEventListener('click', togglePlay);
+        window.addEventListener('resize', draw);
+        
+        requestAnimationFrame(animate);
+        updateState();
+    }
+
+    function togglePlay() {
+        state.isAnimating = !state.isAnimating;
+        playBtn.innerText = state.isAnimating ? 'Pause' : 'Play';
+    }
+
+    function animate() {
+        if (state.isAnimating) {
+            state.minutes = (state.minutes + 1) % 1440;
+            timeInput.value = state.minutes;
+            updateState(true); // Forza il ridisegno chiamando draw()
+        }
+        requestAnimationFrame(animate);
+    }
+
+    function updateState(shouldDraw = true) {
+        state.lat = parseFloat(latInput.value);
+        state.lon = parseFloat(lonInput.value);
+        state.date = new Date(dateInput.value);
+        state.minutes = parseInt(timeInput.value);
+
+        const hours = Math.floor(state.minutes / 60);
+        const mins = state.minutes % 60;
+        timeValLabel.innerText = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+
+        if (shouldDraw) draw();
+    }
+
+    // Funzione di utilità per interpolare i colori (corretta per gestire hex a 6 cifre)
+    function lerpColor(a, b, amount) {
+        const ah = parseInt(a.replace(/#/g, ''), 16),
+              ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
+              bh = parseInt(b.replace(/#/g, ''), 16),
+              br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff,
+              rr = ar + amount * (br - ar),
+              rg = ag + amount * (bg - ag),
+              rb = ab + amount * (bb - ab);
+        
+        const r = Math.round(rr).toString(16).padStart(2, '0');
+        const g = Math.round(rg).toString(16).padStart(2, '0');
+        const b_ = Math.round(rb).toString(16).padStart(2, '0');
+        return '#' + r + g + b_;
+    }
+
+    function getSunOrbitRadius(date) {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date - start;
+        const oneDay = 1000 * 60 * 60 * 24;
+        const dayOfYear = Math.floor(diff / oneDay);
+        const declination = 23.44 * Math.sin(2 * Math.PI * (dayOfYear - 80) / 365.25);
+        return ((90 - declination) / 180) * EARTH_RADIUS_FLAT;
+    }
+
+    function latLonToXY(lat, lon, maxRadius) {
+        const r = ((90 - lat) / 180) * maxRadius;
+        const theta = (lon - 90) * (Math.PI / 180);
+        return { x: r * Math.cos(theta), y: r * Math.sin(theta) };
+    }
+
+    function draw() {
+        drawMap();
+        drawObserverView();
+    }
+
+    function drawContinents(ctx, centerX, centerY, drawRadius) {
+        ctx.fillStyle = '#2e7d32';
+        ctx.strokeStyle = '#1b5e20';
+        ctx.lineWidth = 0.5;
+
+        const drawPath = (points) => {
+            ctx.beginPath();
+            points.forEach((p, i) => {
+                const pos = latLonToXY(p.lat, p.lon, drawRadius);
+                if (i === 0) ctx.moveTo(centerX + pos.x, centerY + pos.y);
+                else ctx.lineTo(centerX + pos.x, centerY + pos.y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        };
+
+        // Nord America e Groenlandia
+        drawPath([
+            {lat: 70, lon: -160}, {lat: 80, lon: -130}, {lat: 85, lon: -100}, {lat: 75, lon: -60}, 
+            {lat: 70, lon: -20}, {lat: 60, lon: -40}, {lat: 50, lon: -50}, {lat: 30, lon: -80},
+            {lat: 15, lon: -90}, {lat: 20, lon: -110}, {lat: 40, lon: -125}, {lat: 60, lon: -140}
+        ]);
+        // Sud America
+        drawPath([
+            {lat: 10, lon: -75}, {lat: 10, lon: -50}, {lat: -10, lon: -35}, {lat: -35, lon: -50}, 
+            {lat: -55, lon: -70}, {lat: -40, lon: -80}, {lat: 0, lon: -85}
+        ]);
+        // Africa
+        drawPath([
+            {lat: 35, lon: -15}, {lat: 37, lon: 10}, {lat: 30, lon: 35}, {lat: 15, lon: 50}, 
+            {lat: -34, lon: 20}, {lat: -20, lon: 10}, {lat: 5, lon: -10}
+        ]);
+        // Eurasia
+        drawPath([
+            {lat: 70, lon: 10}, {lat: 75, lon: 40}, {lat: 70, lon: 80}, {lat: 75, lon: 150}, 
+            {lat: 60, lon: 170}, {lat: 35, lon: 140}, {lat: 10, lon: 110}, {lat: 15, lon: 80},
+            {lat: 25, lon: 60}, {lat: 30, lon: 35}, {lat: 45, lon: 30}, {lat: 50, lon: 10}
+        ]);
+        // Australia e Indonesia
+        drawPath([
+            {lat: -12, lon: 115}, {lat: -15, lon: 145}, {lat: -35, lon: 155}, {lat: -42, lon: 145}, 
+            {lat: -35, lon: 115}, {lat: -20, lon: 110}
+        ]);
+
+        // Muro di Ghiaccio (Antartide) - Più imponente
+        ctx.beginPath();
+        const iceWallThickness = drawRadius * 0.1;
+        const grad = ctx.createRadialGradient(centerX, centerY, drawRadius - iceWallThickness, centerX, centerY, drawRadius);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.2, '#e1f5fe');
+        grad.addColorStop(0.5, '#b3e5fc');
+        grad.addColorStop(1, '#81d4fa');
+        
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = iceWallThickness;
+        ctx.arc(centerX, centerY, drawRadius - iceWallThickness/2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Dettaglio texture ghiaccio (crepe)
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        for(let a=0; a<360; a+=10) {
+            const ang = a * Math.PI / 180;
+            ctx.beginPath();
+            ctx.moveTo(centerX + (drawRadius-iceWallThickness)*Math.cos(ang), centerY + (drawRadius-iceWallThickness)*Math.sin(ang));
+            ctx.lineTo(centerX + drawRadius*Math.cos(ang + 0.1), centerY + drawRadius*Math.sin(ang + 0.1));
+            ctx.stroke();
+        }
+    }
+
+    function drawMap() {
+        const w = mapCanvas.width;
+        const h = mapCanvas.height;
+        const centerX = w / 2;
+        const centerY = h / 2;
+        const drawRadius = w * 0.45;
+
+        mapCtx.clearRect(0, 0, w, h);
+
+        // Clip circolare per la mappa
+        mapCtx.save();
+        mapCtx.beginPath();
+        mapCtx.arc(centerX, centerY, drawRadius, 0, Math.PI * 2);
+        mapCtx.clip();
+
+        // Disegno Immagine se caricata, altrimenti sfondo scuro
+        if (mapImg.complete && mapImg.naturalWidth !== 0) {
+            mapCtx.drawImage(mapImg, centerX - drawRadius, centerY - drawRadius, drawRadius * 2, drawRadius * 2);
+        } else {
+            mapCtx.fillStyle = '#050a15';
+            mapCtx.fill();
+        }
+        mapCtx.restore();
+
+        const drawCircle = (lat, color, label) => {
+            const r = ((90 - lat) / 180) * drawRadius;
+            mapCtx.beginPath();
+            mapCtx.arc(centerX, centerY, r, 0, Math.PI * 2);
+            mapCtx.strokeStyle = color;
+            mapCtx.setLineDash([5, 5]);
+            mapCtx.stroke();
+            mapCtx.setLineDash([]);
+            mapCtx.fillStyle = color;
+            mapCtx.font = 'bold 10px Arial';
+            mapCtx.fillText(label, centerX + r + 2, centerY);
+        };
+
+        drawCircle(0, 'rgba(255,255,255,0.4)', 'Equatore');
+        drawCircle(TROPIC_CANCER_LAT, 'rgba(255,100,100,0.4)', 'Cancro');
+        drawCircle(TROPIC_CAPRICORN_LAT, 'rgba(100,100,255,0.4)', 'Capricorno');
+
+        const obsPos = latLonToXY(state.lat, state.lon, drawRadius);
+        mapCtx.beginPath();
+        mapCtx.arc(centerX + obsPos.x, centerY + obsPos.y, 6, 0, Math.PI * 2);
+        mapCtx.fillStyle = 'red';
+        mapCtx.strokeStyle = 'white';
+        mapCtx.lineWidth = 2;
+        mapCtx.fill();
+        mapCtx.stroke();
+
+        const sunOrbitRadius = getSunOrbitRadius(state.date);
+        const sunOrbitDrawRadius = (sunOrbitRadius / EARTH_RADIUS_FLAT) * drawRadius;
+
+        // Sincronizziamo l'ora 12:00 con la longitudine dell'osservatore
+        const obsAngleRad = (state.lon - 90) * Math.PI / 180;
+        // Invertiamo il segno del tempo: + invece di - per rotazione oraria
+        const sunAngle = obsAngleRad + (state.minutes - 720) * (2 * Math.PI / 1440);
+
+        const sunX = sunOrbitDrawRadius * Math.cos(sunAngle);
+        const sunY = sunOrbitDrawRadius * Math.sin(sunAngle);
+
+        mapCtx.beginPath();
+        mapCtx.arc(centerX + sunX, centerY + sunY, 10, 0, Math.PI * 2);
+        mapCtx.fillStyle = 'yellow';
+        mapCtx.shadowBlur = 10;
+        mapCtx.shadowColor = 'yellow';
+        mapCtx.fill();
+        mapCtx.shadowBlur = 0;
+
+        // --- CALCOLI MATEMATICI ---
+        const realObsPos = latLonToXY(state.lat, state.lon, EARTH_RADIUS_FLAT);
+        const realSunX = sunOrbitRadius * Math.cos(sunAngle);
+        const realSunY = sunOrbitRadius * Math.sin(sunAngle);
+        const dx = realSunX - realObsPos.x;
+        const dy = realSunY - realObsPos.y;
+        const dist2D = Math.sqrt(dx*dx + dy*dy);
+        const dist3D = Math.sqrt(dist2D*dist2D + SUN_HEIGHT*SUN_HEIGHT);
+        const elevation = Math.atan2(SUN_HEIGHT, dist2D) * (180 / Math.PI);
+
+        const vNorth = { x: -obsPos.x, y: -obsPos.y };
+        const vSun = { x: sunX - obsPos.x, y: sunY - obsPos.y };
+        let azim = (Math.atan2(vSun.y, vSun.x) - Math.atan2(vNorth.y, vNorth.x)) * (180/Math.PI);
+        if (azim < 0) azim += 360;
+
+        infoDist.innerText = Math.round(dist3D).toLocaleString();
+        infoElev.innerText = elevation.toFixed(1);
+        infoAzim.innerText = Math.round(azim);
+
+        state.currentElevation = elevation;
+        state.currentAzimuth = azim;
+        state.currentDist = dist3D;
+        }
+
+        function drawObserverView() {
+        const w = obsCanvas.width;
+        const h = obsCanvas.height;
+        obsCtx.clearRect(0, 0, w, h);
+
+        const skyGradient = obsCtx.createLinearGradient(0, 0, 0, h);
+
+        // --- LOGICA COLORI CIELO BASATA SULLA DISTANZA ---
+        if (state.currentDist < 10000) {
+            skyGradient.addColorStop(0, '#1a73e8');
+            skyGradient.addColorStop(1, '#8ab4f8');
+        } else if (state.currentDist < 18000) {
+            const factor = (state.currentDist - 10000) / 8000;
+            const topColor = lerpColor('#1a73e8', '#000428', factor);
+            const midColor = lerpColor('#8ab4f8', '#ff6a00', factor);
+            const bottomColor = lerpColor('#8ab4f8', '#d32f2f', factor);
+            skyGradient.addColorStop(0, topColor);
+            skyGradient.addColorStop(0.5, midColor);
+            skyGradient.addColorStop(1, bottomColor);
+        } else {
+            skyGradient.addColorStop(0, '#000428');
+            skyGradient.addColorStop(1, '#000840');
+        }
+
+        obsCtx.fillStyle = skyGradient;
+        obsCtx.fillRect(0, 0, w, h);
+
+        // Stelle (Visibili basate sulla distanza del sole)
+        if (state.currentDist > 12000) {
+            obsCtx.fillStyle = 'white';
+            // Invertiamo il segno della rotazione: - invece di + per muoverle da destra a sinistra
+            const starRotation = -(state.minutes / 1440) * Math.PI * 2;
+            const starOpacity = Math.min(1, (state.currentDist - 12000) / 6000);
+            obsCtx.globalAlpha = starOpacity;
+            stars.forEach(s => {
+                const sx = (s.x * w + starRotation * 50) % w;
+                const sy = s.y * (h/2);
+                // Gestione del modulo negativo per il wrapping dello schermo
+                const finalX = sx < 0 ? sx + w : sx;
+                obsCtx.beginPath();
+                obsCtx.arc(finalX, sy, s.size, 0, Math.PI * 2);
+                obsCtx.fill();
+            });
+            obsCtx.globalAlpha = 1;
+        }
+
+        obsCtx.fillStyle = '#0a1a0a';
+        obsCtx.fillRect(0, h/2, w, h/2);
+
+        // Tracking del Sole: il centro della vista segue il sole
+        const viewCenterAzim = state.currentAzimuth; 
+        const fov = 120;
+
+        const labels = [{a:0,l:'N'}, {a:90,l:'E'}, {a:180,l:'S'}, {a:270,l:'O'}];
+        obsCtx.fillStyle = 'white';
+        obsCtx.font = 'bold 12px sans-serif';
+        labels.forEach(mark => {
+            let diff = mark.a - viewCenterAzim;
+            while(diff > 180) diff -= 360;
+            while(diff < -180) diff += 360;
+            if (Math.abs(diff) <= fov / 2) {
+                const x = (w / 2) + (diff / (fov / 2)) * (w / 2);
+                obsCtx.fillText(mark.l, x, h / 2 + 20);
+            }
+        });
+
+        if (state.currentElevation > -2) {
+            const sunX = w / 2; // Sempre al centro perché lo seguiamo
+            const sunY = (h/2) - (state.currentElevation / 90) * (h/2);
+            
+            // Dimensione più dinamica: raddoppiamo l'effetto
+            // Il sole in FE dovrebbe variare molto di dimensione
+            const baseSize = 40;
+            const size = baseSize * Math.pow(SUN_HEIGHT / state.currentDist, 1.2);
+
+            const maxVisibleDist = 25000;
+            const opacity = Math.max(0, Math.min(1, (maxVisibleDist - state.currentDist) / 10000));
+            obsCtx.globalAlpha = opacity;
+
+            // Rimosso alone (shadowBlur = 0)
+            obsCtx.shadowBlur = 0;
+            
+            // Sole solido e nitido
+            obsCtx.fillStyle = '#fff9c4';
+            obsCtx.beginPath();
+            obsCtx.arc(sunX, sunY, size, 0, Math.PI * 2);
+            obsCtx.fill();
+            
+            // Nucleo più luminoso
+            obsCtx.fillStyle = 'white';
+            obsCtx.beginPath();
+            obsCtx.arc(sunX, sunY, size * 0.7, 0, Math.PI * 2);
+            obsCtx.fill();
+
+            obsCtx.globalAlpha = 1;
+        }
+    }
+
+    init();
+</script>
+
+</body>
+</html>
