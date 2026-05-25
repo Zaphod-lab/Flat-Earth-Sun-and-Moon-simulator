@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Terra Piatta - L'Incongruenza dell'Azimut</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --panel-bg: #1a1f2c;
+            --text-color: #e0b0ff;
+            --accent-color: #3a4750;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --obs-a-color: #ff4b2b;
+            --obs-b-color: #00d2ff;
+            --sun-color: #ffcc00;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid var(--text-color);
+        }
+
+        .nav-links {
+            display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            text-decoration: none; padding: 5px 15px; border-radius: 5px; color: #ccc; border: 1px solid #555; transition: all 0.3s;
+        }
+
+        .nav-links a.active {
+            color: var(--text-color); border-color: var(--text-color); background: rgba(224, 176, 255, 0.1);
+        }
+
+        main { display: flex; flex: 1; padding: 1rem; gap: 1rem; flex-wrap: wrap; }
+
+        .side-panel {
+            width: 320px; background-color: var(--panel-bg); padding: 1.5rem; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            height: fit-content;
+        }
+
+        .view-container { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+
+        .view-box {
+            background-color: var(--panel-bg); border-radius: 10px; padding: 15px;
+            display: flex; flex-direction: column; align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 1000px;
+        }
+
+        canvas { width: 100%; max-width: 450px; border: 1px solid #333; background-color: #000; border-radius: 5px; margin-bottom: 10px; }
+
+        .control-group {
+            display: flex; flex-direction: column; gap: 0.3rem; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px;
+        }
+
+        .obs-a-text { color: var(--obs-a-color); font-weight: bold;}
+        .obs-b-text { color: var(--obs-b-color); font-weight: bold;}
+
+        input[type="range"], input[type="date"] { width: 100%; }
+
+        .preset-btn {
+            padding: 8px; background: #2c3e50; color: white; border: 1px solid #34495e; border-radius: 5px; cursor: pointer; font-size: 0.8rem; text-align: left; margin-bottom: 5px;
+        }
+
+        .info-panel { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; width: 100%; box-sizing: border-box; }
+
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+
+        .data-card { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; line-height: 1.6; }
+
+        .explanation { font-size: 0.85rem; color: #aaa; line-height: 1.4; margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
+
+        .explanation strong { color: var(--text-color); }
+
+        .formula-box {
+            margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid #444; width: 100%; box-sizing: border-box;
+        }
+
+        code { display: block; background: #000; padding: 10px; border-radius: 4px; color: #0f0; margin: 10px 0; font-size: 0.8rem; overflow-x: auto; font-family: 'Courier New', Courier, monospace; }
+
+        .dyn-calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+
+        .dyn-calc-card { padding: 8px; border-radius: 5px; font-family: monospace; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.1); }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>La Prova dell'Azimut - Fallimento Geometrico</h1>
+    <nav class="nav-links">
+        <a href="index.html">Simulatore Sole (Prospettiva)</a>
+        <a href="indexluna.html">Simulatore Luna (Parallasse)</a>
+        <a href="indexazimut.html" class="active">La Prova dell'Azimut (Triangolazione)</a>
+    </nav>
+</header>
+
+<main>
+    <section class="side-panel">
+        <div class="control-group">
+            <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #fff;">Situazioni Preimpostate</h3>
+            <button class="preset-btn" onclick="setPreset('equinox')">1. Equinozio: Roma e C. del Capo</button>
+            <button class="preset-btn" onclick="setPreset('solstice_summer')">2. Solstizio Estivo: NY e Londra</button>
+            <button class="preset-btn" onclick="setPreset('solstice_winter')">3. Solstizio Inverno: Sydney e Santiago</button>
+        </div>
+
+        <div class="control-group">
+            <label>Data: <input type="date" id="date" value="2024-03-21"></label>
+            <label>Ora (UTC): <span id="time-val">12:00</span></label>
+            <input type="range" id="time" min="0" max="1439" value="720">
+            <button id="playBtn" style="padding:8px; background:var(--text-color); border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:5px; color:#000;">PLAY</button>
+        </div>
+
+        <div class="control-group" style="border-left: 4px solid var(--obs-a-color)">
+            <label class="obs-a-text">Osservatore A (Lat/Lon)</label>
+            <input type="range" id="lat-a" min="-90" max="90" value="41.9">
+            <input type="range" id="lon-a" min="-180" max="180" value="12.5">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa;">
+                <span id="lat-a-val">41.9°</span><span id="lon-a-val">12.5°</span>
+            </div>
+        </div>
+
+        <div class="control-group" style="border-left: 4px solid var(--obs-b-color)">
+            <label class="obs-b-text">Osservatore B (Lat/Lon)</label>
+            <input type="range" id="lat-b" min="-90" max="90" value="-33.9">
+            <input type="range" id="lon-b" min="-180" max="180" value="18.4">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa;">
+                <span id="lat-b-val">-33.9°</span><span id="lon-b-val">18.4°</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="view-container">
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; width: 100%; justify-content: center;">
+            <div class="view-box" style="flex: 1; min-width: 350px;">
+                <h2 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-color);">MODELLO PIANO (Gleason)</h2>
+                <canvas id="mapCanvas" width="500" height="500"></canvas>
+                <p style="font-size: 0.75rem; color: #aaa; text-align: center; margin: 0;">Le linee tratteggiate seguono l'azimut reale ma <b>non convergono</b> sul sole.</p>
+            </div>
+            <div class="view-box" style="flex: 1; min-width: 350px;">
+                <h2 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-color);">MODELLO SFERICO (Globo)</h2>
+                <canvas id="globeCanvas" width="500" height="500"></canvas>
+                <p style="font-size: 0.75rem; color: #aaa; text-align: center; margin: 0;">Sulla sfera, le linee di vista <b>convergono sempre</b> perfettamente al centro.</p>
+            </div>
+        </div>
+        
+        <div class="view-box">
+            <div class="info-panel">
+                <h3 style="margin: 0 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;">Dati Calcolati (Geometria Sferica Reale)</h3>
+                <p style="font-size: 0.85rem; margin: 0 0 10px 0;">Punto Sub-solare Reale: Lat <span id="sun-lat-val">0</span>°, Lon <span id="sun-lon-val">0</span>°</p>
+                <div class="data-grid">
+                    <div class="data-card" style="border-left: 3px solid var(--obs-a-color)">
+                        <h4 class="obs-a-text">Osservatore A</h4>
+                        <div>Azimut: <span class="data-val" id="azim-a">0°</span></div>
+                        <div>Elevazione: <span class="data-val" id="elev-a">0°</span></div>
+                    </div>
+                    <div class="data-card" style="border-left: 3px solid var(--obs-b-color)">
+                        <h4 class="obs-b-text">Osservatore B</h4>
+                        <div>Azimut: <span class="data-val" id="azim-b">0°</span></div>
+                        <div>Elevazione: <span class="data-val" id="elev-b">0°</span></div>
+                    </div>
+                </div>
+                
+                <div class="explanation">
+                    <strong style="font-size: 1.1em;">Concetti Chiave</strong><br>
+                    • <b>Azimut</b>: La direzione cardinale (0-360°) dove guardare con la bussola.<br>
+                    • <b>Elevazione</b>: L'altezza in gradi del Sole sopra l'orizzonte (0° orizzonte, 90° zenit).<br><br>
+                    
+                    <strong>Il Paradosso:</strong> Sulla mappa piatta, se guardi verso l'Azimut reale, le linee di vista <span style="color:red; font-weight:bold;">NON convergono</span> mai sul "Sole piatto". Questo dimostra che il Sole locale piatto è un'impossibilità geometrica.
+                </div>
+
+                <div style="margin-top: 15px; padding: 15px; background: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 8px;">
+                    <strong style="color: #ffa500; font-size: 1rem;">Nota sulle Obiezioni</strong><br>
+                    <p style="font-size: 0.85rem; color: #eee; margin: 8px 0; line-height: 1.4;">
+                        Un'obiezione comune è: <i>"È sbagliato usare la geometria sferica su una mappa piatta"</i>. <br><br>
+                        <b>La Risposta:</b> Questa app non "impone" una geometria. Le linee tratteggiate rappresentano semplicemente <b>la direzione reale della bussola</b> che chiunque può misurare fisicamente in base alla posizione scelta per l'osservatore. <br><br>
+                        Se la Terra fosse davvero piatta come nella mappa di Gleason, un osservatore che punta la bussola verso il Sole <u>dovrebbe</u> vederlo lungo quella linea. Il fatto che queste linee (basate sulla realtà fisica) non si incrocino sul "Sole piatto" prova che la mappa di Gleason è un'astrazione geometrica e non la realtà fisica del mondo.
+                    </p>
+                </div>
+
+                <div style="margin-top: 10px; padding: 15px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 8px; text-align: center;">
+                    <strong style="color: #fff; font-size: 0.9rem;">🔍 VERIFICA TU STESSO I DATI</strong><br>
+                    <p style="font-size: 0.8rem; color: #ccc; margin: 8px 0;">
+                        Puoi confrontare i valori di <b>Azimut</b> ed <b>Elevazione</b> di questa app con quelli di calcolatori solari professionali indipendenti come:<br>
+                        <a href="https://www.suncalc.org/" target="_blank" style="color: #00d2ff; font-weight: bold; text-decoration: underline; font-size: 1rem;">SunCalc.org</a>
+                    </p>
+                    <p style="font-size: 0.75rem; color: #aaa; margin: 0;">
+                        (Inserisci le stesse coordinate e l'ora UTC per confermare l'esattezza dei calcoli reali)
+                    </p>
+                </div>
+
+                <div class="formula-box">
+                    <strong style="color: var(--text-color);">La Matematica (Trigonometria Sferica)</strong>
+                    <p style="font-size: 0.85rem; color: #aaa; margin: 5px 0;">Calcolo dinamico dei passaggi trigonometrici (atan2):</p>
+                    <div class="dyn-calc-grid">
+                        <div class="dyn-calc-card" style="background: rgba(255,75,43,0.1);">
+                            <span class="obs-a-text">Osservatore A:</span><br>
+                            Azimut = atan2(<span id="f-y-a">0</span>, <span id="f-x-a">0</span>) = <strong style="color:var(--obs-a-color);"><span id="f-res-a">0</span>°</strong><br>
+                            Elevazione = <strong style="color:var(--obs-a-color);"><span id="f-el-a">0</span>°</strong>
+                        </div>
+                        <div class="dyn-calc-card" style="background: rgba(0,210,255,0.1);">
+                            <span class="obs-b-text">Osservatore B:</span><br>
+                            Azimut = atan2(<span id="f-y-b">0</span>, <span id="f-x-b">0</span>) = <strong style="color:var(--obs-b-color);"><span id="f-res-b">0</span>°</strong><br>
+                            Elevazione = <strong style="color:var(--obs-b-color);"><span id="f-el-b">0</span>°</strong>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 10px; font-size: 0.75rem; color: #bbb; border-top: 1px solid #555; padding-top: 8px;">
+                        <strong>Legenda dei dati reali:</strong><br>
+                        • <b>Punto Sub-solare</b>: L'unico punto sulla Terra dove il Sole è esattamente a 90° sopra la testa.<br>
+                        • <b>Δλ</b> (Delta Longitudine): Distanza est-ovest tra Sole e osservatore.<br>
+                        • <b>Lat_Sole</b>: Latitudine dove il Sole è allo zenit (declinazione).<br>
+                        • <b>Lat_Obs</b>: La latitudine geografica dell'osservatore (A o B).<br>
+                        • <b>Elevazione</b>: Quanto in alto devi alzare la testa rispetto all'orizzonte.<br>
+                        • <b>atan2</b>: Funzione per calcolare l'angolo corretto tra due coordinate.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    const el = (id) => document.getElementById(id);
+    const canvas = el('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    const globeCanvas = el('globeCanvas');
+    const globeCtx = globeCanvas.getContext('2d');
+    
+    const mapImg = new Image(); mapImg.src = 'Terra piatta.jpeg'; mapImg.onload = draw;
+    const globeImg = new Image(); let globeData = null;
+    const globeTexture = document.createElement('canvas'); globeTexture.width = 1024; globeTexture.height = 512;
+    
+    function initGlobeTexture() {
+        const c = globeTexture.getContext('2d');
+        c.fillStyle = '#0f2040'; c.fillRect(0,0,1024, 512);
+        c.strokeStyle = 'rgba(255,255,255,0.2)'; c.lineWidth = 1;
+        for(let i=0; i<=18; i++) {
+            const lat = (i*10-90) * Math.PI/180, y = (1-(lat+Math.PI/2)/Math.PI)*512;
+            c.beginPath(); c.moveTo(0, y); c.lineTo(1024, y); c.stroke();
+        }
+        for(let i=0; i<=36; i++) {
+            const x = (i*10/360)*1024;
+            c.beginPath(); c.moveTo(x, 0); c.lineTo(x, 512); c.stroke();
+        }
+        globeData = c.getImageData(0,0,1024, 512).data;
+        globeImg.onload = () => {
+            try { c.drawImage(globeImg, 0, 0, 1024, 512); globeData = c.getImageData(0, 0, 1024, 512).data; draw(); }
+            catch(e) { console.warn("Fallback mappa procedurale."); }
+        };
+        globeImg.src = 'Terra_sferica.jpg';
+    }
+
+    let state = { animating: false, minUTC: 720, date: new Date('2024-03-21'), obsA: {lat: 41.9, lon: 12.5}, obsB: {lat: -33.9, lon: 18.4} };
+
+    function updateInputs() {
+        el('lat-a').value = state.obsA.lat; el('lon-a').value = state.obsA.lon;
+        el('lat-b').value = state.obsB.lat; el('lon-b').value = state.obsB.lon;
+        el('lat-a-val').innerText = state.obsA.lat.toFixed(1) + '°'; el('lon-a-val').innerText = state.obsA.lon.toFixed(1) + '°';
+        el('lat-b-val').innerText = state.obsB.lat.toFixed(1) + '°'; el('lon-b-val').innerText = state.obsB.lon.toFixed(1) + '°';
+        el('date').value = state.date.toISOString().split('T')[0]; el('time').value = state.minUTC;
+        const h = Math.floor(state.minUTC/60), m = state.minUTC%60;
+        el('time-val').innerText = h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0');
+    }
+
+    function setPreset(type) {
+        if (type === 'equinox') { state.date = new Date('2024-03-21'); state.minUTC = 720; state.obsA = {lat: 41.9, lon: 12.5}; state.obsB = {lat: -33.9, lon: 18.4}; }
+        else if (type === 'solstice_summer') { state.date = new Date('2024-06-21'); state.minUTC = 840; state.obsA = {lat: 40.7, lon: -74.0}; state.obsB = {lat: 51.5, lon: -0.1}; }
+        else if (type === 'solstice_winter') { state.date = new Date('2024-12-21'); state.minUTC = 240; state.obsA = {lat: -33.8, lon: 151.2}; state.obsB = {lat: -33.4, lon: -70.6}; }
+        updateInputs(); draw();
+    }
+
+    function readInputs() {
+        state.date = new Date(el('date').value); state.minUTC = parseInt(el('time').value);
+        state.obsA = {lat: parseFloat(el('lat-a').value), lon: parseFloat(el('lon-a').value)};
+        state.obsB = {lat: parseFloat(el('lat-b').value), lon: parseFloat(el('lon-b').value)};
+        updateInputs(); draw();
+    }
+
+    function getSubsolarPoint() {
+        const start = new Date(state.date.getFullYear(), 0, 0);
+        const d = Math.floor((state.date - start) / 86400000);
+        const dec = 23.44 * Math.sin(2 * Math.PI * (d - 81) / 365.25);
+        let lon = 180 - (state.minUTC / 1440) * 360;
+        if (lon < -180) lon += 360; if (lon > 180) lon -= 360;
+        return { lat: dec, lon: lon };
+    }
+
+    function calcData(lat1, lon1, lat2, lon2, tag) {
+        const toRad = Math.PI/180, toDeg = 180/Math.PI;
+        const phi1 = lat1 * toRad, phi2 = lat2 * toRad, dLambda = (lon2 - lon1) * toRad;
+        
+        // Azimut
+        const y = Math.sin(dLambda) * Math.cos(phi2);
+        const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+        const azim = (Math.atan2(y, x) * toDeg + 360) % 360;
+
+        // Elevazione
+        const sinEl = Math.sin(phi1) * Math.sin(phi2) + Math.cos(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+        const elev = Math.asin(Math.max(-1, Math.min(1, sinEl))) * toDeg;
+
+        // Update UI
+        el('azim-'+tag).innerText = azim.toFixed(1) + '°';
+        el('elev-'+tag).innerText = elev.toFixed(1) + '°';
+        el('f-y-'+tag).innerText = y.toFixed(3);
+        el('f-x-'+tag).innerText = x.toFixed(3);
+        el('f-res-'+tag).innerText = azim.toFixed(1);
+        el('f-el-'+tag).innerText = elev.toFixed(1);
+
+        return azim;
+    }
+
+    function latLonToXY(lat, lon, maxR) {
+        const r = ((90 - lat)/180) * maxR, lonRad = lon * (Math.PI/180);
+        return { x: r * Math.sin(lonRad), y: r * Math.cos(lonRad) };
+    }
+
+    function drawAzLine(obsXY, azimuth, color) {
+        const toRad = Math.PI/180, len = Math.sqrt(obsXY.x*obsXY.x + obsXY.y*obsXY.y) || 1;
+        const N = { x: -obsXY.x/len, y: -obsXY.y/len }, E = { x: -N.y, y: N.x }, azRad = azimuth * toRad;
+        const dir = { x: N.x*Math.cos(azRad) + E.x*Math.sin(azRad), y: N.y*Math.cos(azRad) + E.y*Math.sin(azRad) };
+        ctx.beginPath(); ctx.moveTo(canvas.width/2 + obsXY.x, canvas.height/2 + obsXY.y);
+        ctx.lineTo(canvas.width/2 + obsXY.x + dir.x*1200, canvas.height/2 + obsXY.y + dir.y*1200);
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    function draw() {
+        const w = canvas.width, h = canvas.height, cx = w/2, cy = h/2, r = w * 0.45;
+        ctx.fillStyle = '#050a15'; ctx.fillRect(0,0,w,h);
+        ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+        if(mapImg.complete && mapImg.naturalWidth > 0) ctx.drawImage(mapImg, cx-r, cy-r, r*2, r*2);
+        ctx.restore();
+        const subsolar = getSubsolarPoint();
+        const azimA = calcData(state.obsA.lat, state.obsA.lon, subsolar.lat, subsolar.lon, 'a');
+        const azimB = calcData(state.obsB.lat, state.obsB.lon, subsolar.lat, subsolar.lon, 'b');
+        el('sun-lat-val').innerText = subsolar.lat.toFixed(1); el('sun-lon-val').innerText = subsolar.lon.toFixed(1);
+        const sunPos = latLonToXY(subsolar.lat, subsolar.lon, r);
+        ctx.beginPath(); ctx.arc(cx + sunPos.x, cy + sunPos.y, 8, 0, Math.PI*2); ctx.fillStyle = 'var(--sun-color)'; ctx.fill();
+        const posA = latLonToXY(state.obsA.lat, state.obsA.lon, r), posB = latLonToXY(state.obsB.lat, state.obsB.lon, r);
+        drawAzLine(posA, azimA, 'var(--obs-a-color)'); drawAzLine(posB, azimB, 'var(--obs-b-color)');
+        const drawO = (p, c, l) => { ctx.beginPath(); ctx.arc(cx+p.x, cy+p.y, 6, 0, Math.PI*2); ctx.fillStyle = c; ctx.fill(); ctx.fillStyle='#fff'; ctx.fillText(l, cx+p.x+8, cy+p.y-8); };
+        drawO(posA, 'var(--obs-a-color)', 'A'); drawO(posB, 'var(--obs-b-color)', 'B');
+        drawGlobe();
+    }
+
+    function drawGlobe() {
+        const w = globeCanvas.width, cx = w/2, radius = w * 0.4;
+        globeCtx.fillStyle = '#050a15'; globeCtx.fillRect(0,0,w,w);
+        if (!globeData) return;
+        const subsolar = getSubsolarPoint(), phi1 = subsolar.lat * Math.PI/180, lam0 = subsolar.lon * Math.PI/180;
+        const imgD = globeCtx.createImageData(w, w), data = imgD.data;
+        for (let y=0; y<w; y++) {
+            for (let x=0; x<w; x++) {
+                const dx=(x-cx)/radius, dy=(cx-y)/radius, r2=dx*dx+dy*dy;
+                if(r2<=1) {
+                    const dz=Math.sqrt(1-r2), lat=Math.asin(dz*Math.sin(phi1)+dy*Math.cos(phi1));
+                    const lon=lam0+Math.atan2(dx*Math.cos(phi1), dz-dy*Math.sin(phi1));
+                    const tx=Math.floor(((lon*180/Math.PI+180)%360)/360*1024), ty=Math.floor((90-lat*180/Math.PI)/180*512);
+                    const ti=(Math.max(0,Math.min(511,ty))*1024+(tx+1024)%1024)*4, pi=(y*w+x)*4;
+                    const sh=0.4+0.6*dz; data[pi]=globeData[ti]*sh; data[pi+1]=globeData[ti+1]*sh; data[pi+2]=globeData[ti+2]*sh; data[pi+3]=255;
+                }
+            }
+        }
+        globeCtx.putImageData(imgD, 0, 0);
+        globeCtx.beginPath(); globeCtx.arc(cx,cx,10,0,Math.PI*2); globeCtx.fillStyle='rgba(255,255,0,0.5)'; globeCtx.fill();
+        const drawOG = (la, lo, c, l) => {
+            const phi=la*Math.PI/180, lam=lo*Math.PI/180, cosC=Math.sin(phi1)*Math.sin(phi)+Math.cos(phi1)*Math.cos(phi)*Math.cos(lam-lam0);
+            if(cosC>0) {
+                const gx=radius*Math.cos(phi)*Math.sin(lam-lam0), gy=radius*(Math.cos(phi1)*Math.sin(phi)-Math.sin(phi1)*Math.cos(phi)*Math.cos(lam-lam0));
+                const fx=cx+gx, fy=cx-gy; globeCtx.beginPath(); globeCtx.moveTo(fx,fy); globeCtx.lineTo(cx,cx); globeCtx.strokeStyle=c; globeCtx.setLineDash([5,5]); globeCtx.stroke(); globeCtx.setLineDash([]);
+                globeCtx.beginPath(); globeCtx.arc(fx,fy,5,0,Math.PI*2); globeCtx.fillStyle=c; globeCtx.fill(); globeCtx.fillStyle='#fff'; globeCtx.fillText(l,fx+8,fy-8);
+            }
+        };
+        drawOG(state.obsA.lat, state.obsA.lon, 'var(--obs-a-color)', 'A'); drawOG(state.obsB.lat, state.obsB.lon, 'var(--obs-b-color)', 'B');
+    }
+
+    ['lat-a','lon-a','lat-b','lon-b','date','time'].forEach(id=>el(id).addEventListener('input', readInputs));
+    el('playBtn').onclick=()=>{ state.animating=!state.animating; el('playBtn').innerText=state.animating?'PAUSA':'PLAY'; if(state.animating) animLoop(); };
+    function animLoop(){ if(!state.animating)return; state.minUTC=(state.minUTC+2)%1440; updateInputs(); draw(); requestAnimationFrame(animLoop); }
+    updateInputs(); initGlobeTexture();
+</script>
+</body>
+</html>

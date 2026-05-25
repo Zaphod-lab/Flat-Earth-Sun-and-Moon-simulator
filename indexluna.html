@@ -131,7 +131,11 @@
 
 <header>
     <h1>Simulatore Luna Terra Piatta</h1>
-    <nav><a href="index.html" style="color: var(--text-color); text-decoration: none; border: 1px solid; padding: 4px 8px; border-radius: 4px;">Torna al Sole</a></nav>
+    <nav style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+        <a href="index.html" style="color: #ccc; text-decoration: none; border: 1px solid #555; padding: 5px 15px; border-radius: 5px;">Simulatore Sole</a>
+        <a href="indexluna.html" style="color: var(--text-color); font-weight: bold; text-decoration: none; border: 1px solid var(--text-color); padding: 5px 15px; border-radius: 5px; background: rgba(0, 210, 255, 0.1);">Simulatore Luna</a>
+        <a href="indexazimut.html" style="color: #ccc; text-decoration: none; border: 1px solid #555; padding: 5px 15px; border-radius: 5px;">Prova dell'Azimut</a>
+    </nav>
 </header>
 
 <main>
@@ -234,8 +238,8 @@
 
     function latLonToXY(lat, lon, maxR) {
         const r = ((90 - lat) / 180) * maxR;
-        const a = (lon - 90) * Math.PI / 180;
-        return { x: r * Math.cos(a), y: r * Math.sin(a) };
+        const lonRad = lon * Math.PI / 180;
+        return { x: r * Math.sin(lonRad), y: r * Math.cos(lonRad) };
     }
 
     function draw() {
@@ -249,10 +253,11 @@
         
         ctxs.map.strokeStyle = 'rgba(255,255,255,0.2)'; ctxs.map.beginPath(); ctxs.map.arc(cx,cx,r,0,Math.PI*2); ctxs.map.stroke();
 
-        const ang = (state.min / 1440) * Math.PI * 2 - Math.PI/2;
-        const mx = (MOON_ORBIT_R / EARTH_R) * r * Math.cos(ang);
-        const my = (MOON_ORBIT_R / EARTH_R) * r * Math.sin(ang);
-        state.moonPos = { x: MOON_ORBIT_R * Math.cos(ang), y: MOON_ORBIT_R * Math.sin(ang) };
+        const moonLon = - (state.min / 1440) * 360;
+        const moonLonRad = moonLon * Math.PI / 180;
+        const mx = (MOON_ORBIT_R / EARTH_R) * r * Math.sin(moonLonRad);
+        const my = (MOON_ORBIT_R / EARTH_R) * r * Math.cos(moonLonRad);
+        state.moonPos = { x: MOON_ORBIT_R * Math.sin(moonLonRad), y: MOON_ORBIT_R * Math.cos(moonLonRad) };
 
         ctxs.map.fillStyle = '#ffff00'; ctxs.map.beginPath(); ctxs.map.arc(cx+mx, cx+my, 8, 0, Math.PI*2); ctxs.map.fill();
 

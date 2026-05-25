@@ -136,8 +136,10 @@
 
 <header>
     <h1>Simulatore Sole Terra Piatta V1.0</h1>
-    <nav>
-        <a href="indexluna.html" style="color: var(--text-color); font-weight: bold; text-decoration: none; border: 1px solid var(--text-color); padding: 5px 10px; border-radius: 5px;">Passa al Simulatore Luna</a>
+    <nav style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+        <a href="index.html" style="color: var(--text-color); font-weight: bold; text-decoration: none; border: 1px solid var(--text-color); padding: 5px 15px; border-radius: 5px; background: rgba(233, 69, 96, 0.1);">Simulatore Sole</a>
+        <a href="indexluna.html" style="color: #ccc; text-decoration: none; border: 1px solid #555; padding: 5px 15px; border-radius: 5px;">Simulatore Luna</a>
+        <a href="indexazimut.html" style="color: #ccc; text-decoration: none; border: 1px solid #555; padding: 5px 15px; border-radius: 5px;">Prova dell'Azimut</a>
     </nav>
 </header>
 
@@ -296,8 +298,8 @@
 
     function latLonToXY(lat, lon, maxRadius) {
         const r = ((90 - lat) / 180) * maxRadius;
-        const theta = (lon - 90) * (Math.PI / 180);
-        return { x: r * Math.cos(theta), y: r * Math.sin(theta) };
+        const lonRad = lon * (Math.PI / 180);
+        return { x: r * Math.sin(lonRad), y: r * Math.cos(lonRad) };
     }
 
     function draw() {
@@ -430,12 +432,11 @@
         const sunOrbitDrawRadius = (sunOrbitRadius / EARTH_RADIUS_FLAT) * drawRadius;
 
         // Sincronizziamo l'ora 12:00 con la longitudine dell'osservatore
-        const obsAngleRad = (state.lon - 90) * Math.PI / 180;
-        // Invertiamo il segno del tempo: + invece di - per rotazione oraria
-        const sunAngle = obsAngleRad + (state.minutes - 720) * (2 * Math.PI / 1440);
+        const sunLon = state.lon - (state.minutes - 720) * (360 / 1440);
+        const sunLonRad = sunLon * (Math.PI / 180);
 
-        const sunX = sunOrbitDrawRadius * Math.cos(sunAngle);
-        const sunY = sunOrbitDrawRadius * Math.sin(sunAngle);
+        const sunX = sunOrbitDrawRadius * Math.sin(sunLonRad);
+        const sunY = sunOrbitDrawRadius * Math.cos(sunLonRad);
 
         mapCtx.beginPath();
         mapCtx.arc(centerX + sunX, centerY + sunY, 10, 0, Math.PI * 2);
@@ -447,8 +448,8 @@
 
         // --- CALCOLI MATEMATICI ---
         const realObsPos = latLonToXY(state.lat, state.lon, EARTH_RADIUS_FLAT);
-        const realSunX = sunOrbitRadius * Math.cos(sunAngle);
-        const realSunY = sunOrbitRadius * Math.sin(sunAngle);
+        const realSunX = sunOrbitRadius * Math.sin(sunLonRad);
+        const realSunY = sunOrbitRadius * Math.cos(sunLonRad);
         const dx = realSunX - realObsPos.x;
         const dy = realSunY - realObsPos.y;
         const dist2D = Math.sqrt(dx*dx + dy*dy);
